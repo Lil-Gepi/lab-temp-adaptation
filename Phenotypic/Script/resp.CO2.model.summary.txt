@@ -1,0 +1,47 @@
+Linear mixed model fit by REML ['lmerMod']
+Formula: log2(co2.rest) ~ Evo * cge * Sex + (1 | EvoRep)
+   Data: resp_rest
+
+REML criterion at convergence: -60.1
+
+Scaled residuals: 
+     Min       1Q   Median       3Q      Max 
+-3.00752 -0.54902  0.01595  0.65426  2.41080 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ EvoRep   (Intercept) 0.00000  0.0000  
+ Residual             0.02631  0.1622  
+Number of obs: 121, groups:  EvoRep, 12
+
+Fixed effects:
+                          Estimate Std. Error t value
+(Intercept)               -0.17424    0.04682  -3.721
+EvoCold                    0.48093    0.06622   7.263
+EvoHot                     0.34237    0.06622   5.170
+cgehotcge                  1.96975    0.10470  18.813
+SexMale                   -0.33991    0.06622  -5.133
+EvoCold:cgehotcge         -0.27788    0.12564  -2.212
+EvoHot:cgehotcge          -0.22307    0.12680  -1.759
+EvoCold:SexMale           -0.11888    0.09365  -1.269
+EvoHot:SexMale            -0.09849    0.09365  -1.052
+cgehotcge:SexMale         -0.17971    0.12468  -1.441
+EvoCold:cgehotcge:SexMale  0.15500    0.16224   0.955
+EvoHot:cgehotcge:SexMale   0.13623    0.16055   0.849
+
+Correlation of Fixed Effects:
+            (Intr) EvoCld EvoHot cghtcg SexMal EvCld: EvHt:c EvC:SM EvH:SM cgh:SM EC::SM
+EvoCold     -0.707                                                                      
+EvoHot      -0.707  0.500                                                               
+cgehotcge   -0.447  0.316  0.316                                                        
+SexMale     -0.707  0.500  0.500  0.316                                                 
+EvCld:cghtc  0.373 -0.527 -0.264 -0.833 -0.264                                          
+EvHt:cghtcg  0.369 -0.261 -0.522 -0.826 -0.261  0.688                                   
+EvoCld:SxMl  0.500 -0.707 -0.354 -0.224 -0.707  0.373  0.185                            
+EvoHot:SxMl  0.500 -0.354 -0.707 -0.224 -0.707  0.186  0.369  0.500                     
+cghtcg:SxMl  0.376 -0.266 -0.266 -0.840 -0.531  0.700  0.693  0.376  0.376              
+EvCld:cg:SM -0.289  0.408  0.204  0.645  0.408 -0.774 -0.533 -0.577 -0.289 -0.769       
+EvHt:cgh:SM -0.292  0.206  0.412  0.652  0.412 -0.543 -0.790 -0.292 -0.583 -0.777  0.597
+optimizer (nloptwrap) convergence code: 0 (OK)
+boundary (singular) fit: see help('isSingular')
+
