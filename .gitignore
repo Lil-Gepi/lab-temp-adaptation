@@ -1,33 +1,31 @@
-# Generated plots and figures 
-**/Plot/ 
-**/old.plots/ 
-**/DEG_category_plot/ 
-**/Enrichment/ 
+# Generated figures/reports
+*.png
+*.pdf
+*.svg
+*.pptx
 
-# R intermediate files 
-*.RDS 
-*.rds 
-*.RData 
-*.rda 
+# R intermediate files
+*.RDS
+*.rds
+*.RData
+*.rda
 
-# Generated figures/reports 
-*.png 
-*.pdf 
-*.svg 
-*.pptx 
+# Large sequencing/genomic files
+*.vcf.gz
+*.vcf
+*.bam
+*.bai
+*.bcf
+*.sam
+*.fastq
+*.fq
+*.fastq.gz
+*.fq.gz
 
-# Large sequencing/genomic files 
-*.vcf.gz 
-*.bam 
-*.bai 
-*.bcf 
-*.sam 
+# R/RStudio
+.Rhistory
+.Rproj.user/
 
-# R/RStudio 
-.Rhistory 
-.RData 
-.Rproj.user/ 
-
-# OS files 
+# OS files
 .DS_Store
 Thumbs.db
