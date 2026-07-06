@@ -241,9 +241,11 @@ fwrite(pairs_weight_dt, "./resp.Weight.contrasts.csv", quote = FALSE)
 saveRDS(weight_tested_plot, "./weight.tested.plot.RDS")
 
 ###############################################################################
-## 7. Combine development and weight plots
+## 7. Combine development, activity, and weight plots
 ###############################################################################
+
 library(grid)
+library(cowplot)
 
 theme_bigfig <- theme(
   plot.title   = element_text(size = 22, face = "bold", hjust = 0.5),
@@ -252,73 +254,135 @@ theme_bigfig <- theme(
   strip.text   = element_text(size = 18, face = "plain"),
   legend.title = element_text(size = 18, face = "bold"),
   legend.text  = element_text(size = 16),
-  plot.caption = element_text(size = 16),
+  plot.caption = element_text(size = 16, hjust = 0.5),
   legend.key.size = unit(0.7, "cm")
 )
 
-dev_raw_plot <- readRDS("./deve.raw.plot.RDS")
-dev_raw_plot <- dev_raw_plot +
-  ggtitle("Eclosion curve") +
-  ylab("Cumulative number of eclosed individual") +
-  theme_bigfig +
-  theme(
-    legend.position = "bottom",
-    legend.direction = "horizontal",
-    legend.box = "horizontal"
-  ) +
-  guides(
-    color = guide_legend(nrow = 1),
-    fill  = guide_legend(nrow = 1)
-  )
-
-dev_t10_plot <- readRDS("./deve.plot.RDS")
-dev_t10_plot <- dev_t10_plot +
+dev_t10_plot <- readRDS("./deve.plot.RDS") +
   ggtitle("Development time") +
-  labs(x = NULL, caption = "") +
+  labs(x = NULL, caption = NULL) +
   theme_bigfig +
   theme(
     axis.title.x = element_blank(),
     axis.text.x  = element_blank(),
-    axis.ticks.x = element_blank()
+    axis.ticks.x = element_blank(),
+    plot.caption = element_blank()
   )
 
-
-weight_tested_plot <- readRDS("./weight.tested.plot.RDS")
-weight_tested_plot <- weight_tested_plot +
+weight_tested_plot <- readRDS("./weight.tested.plot.RDS") +
+  facet_wrap(~cge * Sex, nrow = 1) +
   ggtitle("Dry weight") +
-  labs(caption = "**** p < 0.0001    *** p < 0.001    ** p < 0.01    * p < 0.05") +
+  labs(x = NULL, caption = NULL) +
   theme_bigfig +
   theme(
-    plot.caption = element_text(size = 16, hjust = 0.5)
+    axis.title.x = element_blank(),
+    axis.text.x  = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.caption = element_blank()
   )
 
-left <- plot_grid(
-  dev_t10_plot,
-  weight_tested_plot,
-  labels = c("A", "C"),
-  label_size = 24,
-  label_fontface = "bold",
+activity_curve_plot <- readRDS("./activity.curve.plot.RDS") +
+  ggtitle("Activity rhythm") +
+  theme_bigfig +
+  theme(
+    plot.caption = element_text(size = 16, hjust = 0.5),
+    axis.title.y = element_text(size = 20),
+    axis.text = element_text(size = 18)
+  )
+activity_1h_evo <- readRDS("./activity.curve.data.RDS")$activity_1h_evo
+y_top <- max(activity_1h_evo$mean_activity + activity_1h_evo$se_activity, na.rm = TRUE)
+
+## Population legend ----
+
+pop_legend_plot <- ggplot(
+  data.frame(
+    Population = factor(c("Ancestral", "Cold-evolved", "Hot-evolved"),
+                        levels = c("Ancestral", "Cold-evolved", "Hot-evolved")),
+    x = 1:3, y = 1
+  ),
+  aes(x, y, color = Population)
+) +
+  geom_point(size = 4) +
+  scale_color_manual(values = c(
+    "Ancestral" = "forestgreen",
+    "Cold-evolved" = "steelblue",
+    "Hot-evolved" = "maroon"
+  )) +
+  theme_void(base_size = 18) +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 18, face = "bold"),
+    legend.text = element_text(size = 16)
+  ) +
+  guides(color = guide_legend(title = "Population"))
+
+pop_legend <- get_legend(pop_legend_plot)
+
+## Light cycle legend ----
+
+light_legend_plot <- ggplot(
+  data.frame(
+    Phase = factor(c("Light", "Dark", "Switch"),
+                   levels = c("Light", "Dark", "Switch")),
+    x = 1:3, y = 1
+  ),
+  aes(x, y, fill = Phase)
+) +
+  geom_tile() +
+  scale_fill_manual(values = c(
+    "Light" = "gold",
+    "Dark" = "grey65",
+    "Switch" = "orange"
+  )) +
+  theme_void(base_size = 18) +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 18, face = "bold"),
+    legend.text = element_text(size = 16)
+  ) +
+  guides(fill = guide_legend(title = "Light cycle"))
+
+light_legend <- get_legend(light_legend_plot)
+
+legend_col <- plot_grid(
+  pop_legend,
+  light_legend,
   ncol = 1,
   align = "v",
-  rel_heights = c(1, 1.6)
+  rel_heights = c(1, 1)
 )
 
-right <- plot_grid(
-  dev_raw_plot,
-  NULL,
-  labels = c("B", ""),
+up <- plot_grid(
+  dev_t10_plot,
+  weight_tested_plot,
+  labels = c("A", "B"),
   label_size = 24,
   label_fontface = "bold",
-  ncol = 1,
+  ncol = 2,
   align = "h",
-  rel_heights = c(1, 0)
+  rel_widths = c(1, 1.35)
+)
+
+down_left <- plot_grid(
+  activity_curve_plot,
+  labels = "C",
+  label_size = 24,
+  label_fontface = "bold",
+  ncol = 1
+)
+
+down <- plot_grid(
+  down_left,
+  legend_col,
+  ncol = 2,
+  rel_widths = c(1.25, 0.45)
 )
 
 final_dev_weight_figure <- plot_grid(
-  left,
-  right,
-  ncol = 2,
-  rel_widths = c(1.3, 1)
+  up,
+  down,
+  ncol = 1,
+  rel_heights = c(1.15, 1.05)
 )
 
 ggsave(

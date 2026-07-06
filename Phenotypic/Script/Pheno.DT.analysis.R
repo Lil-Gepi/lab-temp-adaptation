@@ -96,18 +96,18 @@ png("../Plot/Development_raw_proportion.png", width = 10, height = 7, units = "i
 ggplot(development_prop_plot) +
   facet_wrap(~ cge, nrow = 1, scales = "free_x") +
   geom_ribbon(
-    aes(x = ColDay, ymin = pmax(mean_prop - sd_prop, 0), ymax = pmin(mean_prop + sd_prop, 1), fill = Evo),
+    aes(x = log(ColDay), ymin = pmax(mean_prop - sd_prop, 0), ymax = pmin(mean_prop + sd_prop, 1), fill = Evo),
     alpha = 0.2
   ) +
   geom_line(
-    aes(x = ColDay, y = mean_prop, color = Evo),
+    aes(x = log(ColDay), y = mean_prop, color = Evo),
     linewidth = 1.5
   ) +
   scale_color_manual(values = c("forestgreen", "steelblue", "maroon")) +
   scale_fill_manual(values = c("forestgreen", "steelblue", "maroon")) +
   labs(
     y = "Cumulative proportion of final red-eye eclosion",
-    x = "Day post egg-laying",
+    x = "Day post egg-laying (log scaled)",
     title = "Raw cumulative proportion"
   ) +
   theme_minimal(base_size = 15)
@@ -205,7 +205,7 @@ emm.res <- emmeans(
   fit_T10,
   pairwise ~ Evo * cge,
   by = "cge",
-  adjust = "none",
+  adjust = "BH",
   type = "response"
 )
 

@@ -365,6 +365,15 @@ saveRDS(p.cmh.hot, "p.cmh.hot.RDS")
 
 
 # Below is plotting ----
+xf <- readRDS("xf.covfilter.RDS")
+p.cmh.cold <- readRDS("p.cmh.cold.RDS")
+p.cmh.hot  <- readRDS("p.cmh.hot.RDS")
+
+setDT(xf)
+setkeyv(xf, c("CHROM", "POS"))
+
+cold.090.target <- p.cmh.cold[p.cmh.cold < 0.05, .(CHROM, POS)]
+hot.090.target  <- p.cmh.hot[p.cmh.hot < 0.05, .(CHROM, POS)]
 
 library(grid)
 library(cowplot)
@@ -385,16 +394,6 @@ theme_bigfig <- theme_minimal(base_size = 18, base_family = "sans") +
     panel.grid.minor = element_blank()
   )
 
-## 4. AFC rank plot ----
-xf <- readRDS("xf.covfilter.RDS")
-p.cmh.cold <- readRDS("p.cmh.cold.RDS")
-p.cmh.hot  <- readRDS("p.cmh.hot.RDS")
-
-setDT(xf)
-setkeyv(xf, c("CHROM", "POS"))
-
-cold.090.target <- p.cmh.cold[p.cmh.cold < 0.05, .(CHROM, POS)]
-hot.090.target  <- p.cmh.hot[p.cmh.hot < 0.05, .(CHROM, POS)]
 
 cold.snp <- cbind(
   cold.090.target,
@@ -404,10 +403,6 @@ cold.snp <- cbind(
     apply(xf[cold.090.target, 6:15, with = FALSE], 1, mean)
 ) |> as.data.table()
 
-cold.snp[cold.afc < 0, `:=`(
-  cold.afc = abs(cold.afc),
-  hot.afc  = -1 * hot.afc
-)]
 
 hot.snp <- cbind(
   hot.090.target,
@@ -416,6 +411,46 @@ hot.snp <- cbind(
   hot.afc = apply(xf[hot.090.target, 166:175, with = FALSE], 1, mean) -
     apply(xf[hot.090.target, 6:15, with = FALSE], 1, mean)
 ) |> as.data.table()
+## 5. Venn diagram ----
+hot_up  <- unique(unlist(hot.snp[hot.afc > 0, .(paste0(CHROM, "_", POS))]))
+hot_dn  <- unique(unlist(hot.snp[hot.afc < 0, .(paste0(CHROM, "_", POS))]))
+cold_up <- unique(unlist(cold.snp[cold.afc > 0, .(paste0(CHROM, "_", POS))]))
+cold_dn <- unique(unlist(cold.snp[cold.afc < 0, .(paste0(CHROM, "_", POS))]))
+
+venn_obj <- list(
+  "Hot Increasing"  = hot_up,
+  "Hot Decreasing"  = hot_dn,
+  "Cold Increasing" = cold_up,
+  "Cold Decreasing" = cold_dn
+)
+
+p_venn <- ggVennDiagram(
+  x = venn_obj,
+  label = "both",
+  label_color = "grey5",
+  set_color = c("maroon", "maroon", "steelblue", "steelblue"),
+  set_size = 5,label_size = 5,
+  label_alpha = 0.15
+) +
+  scale_fill_distiller(palette = "Reds", direction = 1) +
+  theme_void(base_family = "sans") +
+  coord_fixed(clip = "off") +
+  theme(
+    text            = element_text(size = 20),
+    legend.position = "none",
+    plot.margin     = margin(30, 30, 30, 30)
+  )
+
+png("../Plot/Figure4.VennDiagram.png", width = 8, height = 8, units = "in", res = 600)
+print(p_venn)
+dev.off()
+
+## 4. AFC rank plot ----
+cold.snp[cold.afc < 0, `:=`(
+  cold.afc = abs(cold.afc),
+  hot.afc  = -1 * hot.afc
+)]
+
 
 hot.snp[hot.afc < 0, `:=`(
   hot.afc  = abs(hot.afc),
@@ -526,38 +561,7 @@ png("../Plot/Figure4.AFCrank.Hot.png", width = 8, height = 5, units = "in", res 
 print(p_hot)
 dev.off()
 
-## 5. Venn diagram ----
-hot_up  <- unique(unlist(hot.snp[hot.afc > 0, .(paste0(CHROM, "_", POS))]))
-hot_dn  <- unique(unlist(hot.snp[hot.afc < 0, .(paste0(CHROM, "_", POS))]))
-cold_up <- unique(unlist(cold.snp[cold.afc > 0, .(paste0(CHROM, "_", POS))]))
-cold_dn <- unique(unlist(cold.snp[cold.afc < 0, .(paste0(CHROM, "_", POS))]))
 
-venn_obj <- list(
-  "Hot Increasing"  = hot_up,
-  "Hot Decreasing"  = hot_dn,
-  "Cold Increasing" = cold_up,
-  "Cold Decreasing" = cold_dn
-)
-
-p_venn <- ggVennDiagram(
-  x = venn_obj,
-  label = "both",
-  label_color = "grey5",
-  set_color = c("maroon", "maroon", "steelblue", "steelblue"),
-  label_alpha = 0.15
-) +
-  scale_fill_distiller(palette = "Reds", direction = 1) +
-  theme_void(base_family = "sans") +
-  coord_fixed(clip = "off") +
-  theme(
-    text            = element_text(size = 18),
-    legend.position = "none",
-    plot.margin     = margin(30, 30, 30, 30)
-  )
-
-png("../Plot/Figure4.VennDiagram.png", width = 8, height = 8, units = "in", res = 600)
-print(p_venn)
-dev.off()
 
 ## 6. Correlation matrix ----
 base_cols <- 6:15
@@ -611,11 +615,11 @@ p_cor <- ggplot(cor_dt, aes(x = Var1, y = Var2, fill = N)) +
   labs(
     title = "Pairwise correlation of AFC between replicate populations",
     x = NULL,y = NULL,fill = NULL) +
+  theme_void()+
   theme_bigfig +
-  theme(legend.position = "bottom",
+  theme(legend.position = "right",
     panel.grid  = element_blank(),
-    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 14),
-    axis.text.y = element_text(size = 14),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
     plot.title  = element_text(size = 18, face = "plain")
   )
 
@@ -624,21 +628,37 @@ print(p_cor)
 dev.off()
 
 ## 7. Make Figure 4 ----
-mega <- plot_grid(
+upper <- plot_grid(
+  NULL,NULL,
   p_cold, p_hot,
-  p_venn, p_cor,
-  labels = c("A", "B", "C", "D"),label_x = -0.2,
+  labels = c("A", "B", "",""),
   label_size = 24,
   label_fontface = "bold",
-  ncol = 2,
-  rel_heights = c(1, 1)
+  ncol = 2, nrow = 2,
+  rel_heights = c(0.1,1)
 )
+lower <- plot_grid(
+  NULL,NULL,
+  p_venn, p_cor,
+  labels = c("C", "D","",""),
+  label_size = 24,
+  label_fontface = "bold",
+  ncol = 2,  nrow = 2,
+  rel_heights = c(0.1,1)
+)
+mega <- plot_grid(
+  upper, lower,
+  nrow = 2,
+  rel_heights = c(1, 1.1)
+)
+
+mega
 
 ggsave(
   "../Plot/Figure4.Mega.png",
   mega,
-  width = 14,
-  height = 10,
+  width = 16,
+  height = 12,
   dpi = 600
 )
 
@@ -649,7 +669,7 @@ ggsave(
 
 
 ## S1. Manhattan plot ----
-plotMan <- function(res.dt, thres_cmh_genome = 1e-2, alp = 1, top = F, highlightcolor="red") {
+plotMan <- function(res.dt, thres_cmh_genome = 5e-2, alp = 1, top = F, highlightcolor="red") {
   result <- copy(res.dt)
   setnames(result, 1:3, c("CHR","BP","P"))
   chr.name <- data.table(
@@ -677,18 +697,22 @@ plotMan <- function(res.dt, thres_cmh_genome = 1e-2, alp = 1, top = F, highlight
     scale_color_manual(values = rep(c("grey60","black"), 4)) +
     scale_x_continuous(name = "Chromosome",label = c("X", "2L", "2R", "3L", "3R"),breaks = axisdf$center,
                        position = ifelse(top,"top", "bottom")) +
-    geom_point(data=subset(don, highlight==1), color=highlightcolor,alpha = 1, size=1.1) +
-    geom_point(data=subset(don, shared==1), color="red",alpha = 1, size=1.2) +
+    geom_point(data=subset(don, highlight==1), color=highlightcolor,alpha = 0.5, size=1.1) +
+    # geom_point(data=subset(don, shared==1), color="red",alpha = 1, size=1.2) +
     geom_hline(yintercept = -log10(thres_cmh_genome),linetype = "dashed",color = "red") +
     theme_minimal() 
   return(resplot)
 }
-p.cmh.cold[p.cmh.hot[p.cmh.hot<0.01, .(CHROM,POS)], highlight :=1]
-p.cmh.hot[p.cmh.cold[p.cmh.cold<0.01, .(CHROM,POS)], highlight :=1]
+p.cmh.cold <- readRDS("p.cmh.cold.RDS")
+p.cmh.hot  <- readRDS("p.cmh.hot.RDS")
 
-SNP <- intersect(p.cmh.cold[p.cmh.cold<0.01, .(CHROM, POS)], p.cmh.hot[p.cmh.hot<0.01, .(CHROM, POS)])
-p.cmh.cold[SNP, shared :=1]
-p.cmh.hot[SNP, shared :=1]
+
+p.cmh.cold[p.cmh.hot[p.cmh.hot<0.05, .(CHROM,POS)], highlight :=1]
+p.cmh.hot[p.cmh.cold[p.cmh.cold<0.05, .(CHROM,POS)], highlight :=1]
+# 
+# SNP <- intersect(p.cmh.cold[p.cmh.cold<0.01, .(CHROM, POS)], p.cmh.hot[p.cmh.hot<0.01, .(CHROM, POS)])
+# p.cmh.cold[SNP, shared :=1]
+# p.cmh.hot[SNP, shared :=1]
 
 
 library(cowplot)
@@ -705,13 +729,27 @@ plot.hot <- plotMan(p.cmh.hot, top = T, highlightcolor = "steelblue") +
         axis.title.x = element_blank(),
         legend.position = "none")
 title <- ggdraw() + 
-  draw_label("CMH on Cold & Hot evolved population",fontface = 'bold',x = 0,hjust = 0) +
+  draw_label("Adapted CMH on Cold & Hot evolution F0-F90",fontface = 'bold',x = 0,hjust = 0) +
   theme(    plot.margin = margin(0, 0, 0, 7))
-png("../Plot/Manhattan.CMH.Cold&Hot.png", width = 8, height = 6, units = "in", res = 600)
+png("../Plot/Suppl.figure.Manhattan.png", width = 8, height = 6, units = "in", res = 600)
 cowplot::plot_grid(title, plot.cold,NULL,plot.hot, ncol = 1, rel_heights = c(0.1,1,-0.03,1))
 dev.off()
 
 
+## S2. Ne estimate plot ----
+
+ne_estimates <- readRDS("ne_estimate.RDS")
+
+ne_median <- ne_estimates[,lapply(.SD, FUN = median), by = .(chrom, evo, replicate, start, end)]
+ne_median[,`:=`(trial = NULL, ne = round(ne+0.5))]
+png("../Plot/Suppl.figure.Ne.png", width = 8, height = 6, units = "in", res = 600)
+ggplot(data = ne_median, aes(x = evo, y = ne, color = evo)) +
+  geom_hline(yintercept = 1250, linetype = "dashed", colour = "grey20", )+
+  geom_boxplot(width = 0.8, size = 1) +
+  facet_wrap(~chrom, nrow = 1) +
+  scale_color_manual(values = c("steelblue","maroon")) +
+  labs(x = "", y = "Ne estimate", color = "Regime", title = "Ne estimate based on temporal AFC F0-F90") 
+dev.off()
 
 
 

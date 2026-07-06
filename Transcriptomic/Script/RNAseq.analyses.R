@@ -203,28 +203,28 @@ fwrite(x = list(DE.list$lab), file = "./Lab.gene.txt", quote = F, sep = "\t")
 fwrite(x = list(DE.list$temp), file = "./Temp.gene.txt", quote = F, sep = "\t")
 fwrite(x = list(DE.list$inter), file = "./Inter.gene.txt", quote = F, sep = "\t")
 
-for (type in names(DE.list)) {
-  dir.create(path = paste0("../Plot/DEG_category_plot/", type,"/"))
-  temp.genelist <- DE.list[[type]]
-  temp.dat <- cpm.mat[rownames(cpm.mat) %in% temp.genelist,]
-  temp.dat <- setDT(as.data.frame(temp.dat), keep.rownames = T)
-  long_data <- melt(temp.dat, id.vars = "rn", variable.name = "sample", value.name = "expression")
-  long_data[, c("environment", "replicate") := tstrsplit(sample, "_")[1:2]]
-  long_data[, population := substr(replicate, 1, 1)]
-  long_data[, replicate := substr(replicate, 2, 2)]
-  for (gene in unique(long_data$rn)) {
-    p<- ggplot(long_data[rn == gene,], aes(x = population, y = expression, color = population)) +
-      facet_wrap(~environment)+
-      geom_boxplot(outlier.shape = NA)+
-      labs(title = paste0("Gene ", gene, ", categorized as ", type), x = "Population", y = "logCPM (Expression Intensity)") +
-      scale_color_manual(values = c("forestgreen","steelblue","maroon"))+
-      theme_minimal()
-    png(filename = paste0("../Plot/DEG_category_plot/", type,"/",gene,".png"), width = 7, height = 5, units = "in", res = 350)
-    print(p)
-    dev.off()
-  }
-}
-dev.off()
+# for (type in names(DE.list)) {
+#   dir.create(path = paste0("../Plot/DEG_category_plot/", type,"/"))
+#   temp.genelist <- DE.list[[type]]
+#   temp.dat <- cpm.mat[rownames(cpm.mat) %in% temp.genelist,]
+#   temp.dat <- setDT(as.data.frame(temp.dat), keep.rownames = T)
+#   long_data <- melt(temp.dat, id.vars = "rn", variable.name = "sample", value.name = "expression")
+#   long_data[, c("environment", "replicate") := tstrsplit(sample, "_")[1:2]]
+#   long_data[, population := substr(replicate, 1, 1)]
+#   long_data[, replicate := substr(replicate, 2, 2)]
+#   for (gene in unique(long_data$rn)) {
+#     p<- ggplot(long_data[rn == gene,], aes(x = population, y = expression, color = population)) +
+#       facet_wrap(~environment)+
+#       geom_boxplot(outlier.shape = NA)+
+#       labs(title = paste0("Gene ", gene, ", categorized as ", type), x = "Population", y = "logCPM (Expression Intensity)") +
+#       scale_color_manual(values = c("forestgreen","steelblue","maroon"))+
+#       theme_minimal()
+#     png(filename = paste0("../Plot/DEG_category_plot/", type,"/",gene,".png"), width = 7, height = 5, units = "in", res = 350)
+#     print(p)
+#     dev.off()
+#   }
+# }
+# dev.off()
 
 rm(lrt_cold, lrt_env, lrt_hot, lrt_lab, lrt_temp)
 
@@ -356,139 +356,8 @@ ggsave(
   units = "in",
   dpi = 600
 )
-## 9. GO enrichment on the three categories of DE genes ----
-library(topGO);library(org.Dm.eg.db);library(AnnotationDbi);library(patchwork);library(stringr); library(tidytext)
 
-gene2GO <- AnnotationDbi::select(org.Dm.eg.db, keys   = unique(short.list$gene),
-                                 keytype= "FLYBASE",columns= "GO")
-gene2GO <- gene2GO[!is.na(gene2GO$GO), ]
-gene2GO <- split(gene2GO$GO, gene2GO$FLYBASE)
-universe <- names(gene2GO)
-
-run_topgo <- function(target, ont){
-  target   <- intersect(target, universe)
-  geneList <- factor(as.integer(universe %in% target)); names(geneList) <- universe
-  obj <- new("topGOdata", ontology=ont, allGenes=geneList, nodeSize=10,
-             annot=annFUN.gene2GO, gene2GO=gene2GO)
-  tbl <- GenTable(obj, p = runTest(obj, algorithm="weight01", statistic="fisher"),
-                  topNodes=15, orderBy = "GeneRatio", numChar=100)
-  setDT(tbl)
-  tbl[,GeneRatio := as.numeric(Significant)/as.numeric(Annotated)]
-  tbl[p=="<1e-30" | p == "< 1e-30", p:= 1e-30][,p := as.numeric(p)]
-  tbl <- tbl[order(as.numeric(p), decreasing = F),]
-  tbl[, Term := str_trim(gsub("\\s*\\([^)]*\\)", "", Term))]
-  tbl$Term <- factor(str_wrap(tbl$Term,40), levels = rev(str_wrap(tbl$Term,40)))
-  tbl <- tbl[p<0.05, ]
-  return(tbl)
-}
-
-lab.bp <- run_topgo(target = short.list[sig == "Lab DEGs",gene],ont = "BP")[,`:=`(DEG = "Lab", ont = "BP")]
-lab.mf <- run_topgo(target = short.list[sig == "Lab DEGs",gene],ont = "MF")[,`:=`(DEG = "Lab", ont = "MF")]
-lab.cc <- run_topgo(target = short.list[sig == "Lab DEGs",gene],ont = "CC")[,`:=`(DEG = "Lab", ont = "CC")]
-
-temp.bp <- run_topgo(target = short.list[sig == "Temp DEGs",gene],ont = "BP")[,`:=`(DEG = "Temp", ont = "BP")]
-temp.mf <- run_topgo(target = short.list[sig == "Temp DEGs",gene],ont = "MF")[,`:=`(DEG = "Temp", ont = "MF")]
-temp.cc <- run_topgo(target = short.list[sig == "Temp DEGs",gene],ont = "CC")[,`:=`(DEG = "Temp", ont = "CC")]
-
-inter.bp <- run_topgo(target = short.list[sig == "Lab X Temp DEGs",gene],ont = "BP")[,`:=`(DEG = "Lab X Temp", ont = "BP")]
-inter.mf <- run_topgo(target = short.list[sig == "Lab X Temp DEGs",gene],ont = "MF")[,`:=`(DEG = "Lab X Temp", ont = "MF")]
-inter.cc <- run_topgo(target = short.list[sig == "Lab X Temp DEGs",gene],ont = "CC")[,`:=`(DEG = "Lab X Temp", ont = "CC")]
-
-CGE.bp <- run_topgo(target = short.list[fdr.env<0.05,gene],ont = "BP")[,`:=`(DEG = "CGE", ont = "BP")]
-CGE.mf <- run_topgo(target = short.list[fdr.env<0.05,gene],ont = "MF")[,`:=`(DEG = "CGE", ont = "MF")]
-CGE.cc <- run_topgo(target = short.list[fdr.env<0.05,gene],ont = "CC")[,`:=`(DEG = "CGE", ont = "CC")]
-
-# plotting the results
-library(ggplot2); library(tidytext); library(viridis); library(scales)
-## 11.1 BP ----
-GO.enrich.bp <- rbind(lab.bp, temp.bp, inter.bp, CGE.bp)
-GO.enrich.bp[, DEG := factor(DEG, levels = c("Lab", "Temp", "Lab X Temp", "CGE"))]
-sz_breaks  <- pretty(GO.enrich.bp$Significant, 4)
-col_breaks <- pretty(-log10(GO.enrich.bp$p),   5)
-
-png("../Plot/GO.enrich.BP.png", 16, 12, units = "in", res = 600)
-ggplot(GO.enrich.bp,
-       aes(GeneRatio,
-           reorder_within(Term, GeneRatio, DEG),
-           size   = Significant,
-           colour = -log10(p))) +
-  facet_wrap(~DEG, scales = "free", nrow = 2) +
-  geom_point(shape = 15) +
-  scale_y_reordered() +
-  scale_colour_viridis_c(option = "plasma",
-                         breaks  = col_breaks,
-                         name    = expression(-log[10](p))) +
-  scale_size_continuous(breaks = sz_breaks,
-                        range  = c(1.5, 8),
-                        name   = "Gene count") +
-  labs(x = "Gene ratio",
-       y = NULL,
-       title = "Gene Ontology Enrichment: Biological Process") +
-  theme_bw(base_size = 14) +
-  theme(panel.grid.major.y = element_blank())
-dev.off()
-
-## 11.2 MF ----
-GO.enrich.mf <- rbind(lab.mf, temp.mf, inter.mf, CGE.mf)
-GO.enrich.mf[, DEG := factor(DEG, levels = c("Lab", "Temp", "Lab X Temp", "CGE"))]
-sz_breaks  <- pretty(GO.enrich.mf$Significant, 4)
-col_breaks <- pretty(-log10(GO.enrich.mf$p),   5)
-
-png("../Plot/GO.enrich.MF.png", 16, 12, units = "in", res = 600)
-ggplot(GO.enrich.mf,
-       aes(GeneRatio,
-           reorder_within(Term, GeneRatio, DEG),
-           size   = Significant,
-           colour = -log10(p))) +
-  facet_wrap(~DEG, scales = "free", nrow = 2) +
-  geom_point(shape = 15) +
-  scale_y_reordered() +
-  scale_colour_viridis_c(option = "plasma",
-                         breaks  = col_breaks,
-                         name    = expression(-log[10](p))) +
-  scale_size_continuous(breaks = sz_breaks,
-                        range  = c(1.5, 8),
-                        name   = "Gene count") +
-  labs(x = "Gene ratio",
-       y = NULL,
-       title = "Gene Ontology Enrichment: Molecular Function") +
-  theme_bw(base_size = 14) +
-  theme(panel.grid.major.y = element_blank())
-dev.off()
-
-## 11.3 CC ----
-GO.enrich.cc <- rbind(lab.cc, temp.cc, inter.cc, CGE.cc)
-GO.enrich.cc[, DEG := factor(DEG, levels = c("Lab", "Temp", "Lab X Temp", "CGE"))]
-sz_breaks  <- pretty(GO.enrich.cc$Significant, 4)
-col_breaks <- pretty(-log10(GO.enrich.cc$p),   5)
-
-png("../Plot/GO.enrich.CC.png", 16, 12, units = "in", res = 600)
-ggplot(GO.enrich.cc,
-       aes(GeneRatio,
-           reorder_within(Term, GeneRatio, DEG),
-           size   = Significant,
-           colour = -log10(p))) +
-  facet_wrap(~DEG, scales = "free", nrow = 2) +
-  geom_point(shape = 15) +
-  scale_y_reordered() +
-  scale_colour_viridis_c(option = "plasma",
-                         breaks  = col_breaks,
-                         name    = expression(-log[10](p))) +
-  scale_size_continuous(breaks = sz_breaks,
-                        range  = c(1.5, 8),
-                        name   = "Gene count") +
-  labs(x = "Gene ratio",
-       y = NULL,
-       title = "Gene Ontology Enrichment: Cellular Component") +
-  theme_bw(base_size = 14) +
-  theme(panel.grid.major.y = element_blank())
-dev.off()
-
-rm(run_topgo, GO.enrich.bp,sz_breaks, col_breaks, GO.enrich.cc, GO.enrich.mf, universe,lab.bp, lab.mf, lab.cc, temp.bp, temp.mf, temp.cc, inter.bp, inter.mf, inter.cc, CGE.bp, CGE.mf, CGE.cc)
-
-
-#################################  STOPPP  ######################################
-############### PURINE METABOLISM PATHWAY#######################################
+## 9. Purine synthesis pathway ----
 
 library(org.Dm.eg.db)
 library(AnnotationDbi)
@@ -499,55 +368,243 @@ enzymes_list <- c(
   "4.1.1.21", "6.3.2.6", "4.3.2.2", "3.5.4.10"
 )
 
-# 2. Map EC -> Entrez -> FlyBase 
 ec_mapping <- as.data.table(
   AnnotationDbi::select(
     org.Dm.eg.db,
-    keys    = enzymes_list,
+    keys = enzymes_list,
     keytype = "ENZYME",
     columns = c("FLYBASE", "SYMBOL")
   )
 )
+# ec_mapping <- ec_mapping[SYMBOL != "Prat",]
+
 setnames(ec_mapping, c("ENZYME", "FLYBASE", "SYMBOL"), c("ec", "gene", "symbol"))
 ec_mapping <- unique(ec_mapping[!is.na(gene)])
 
-# Collapse ECs per gene 
 gene_metadata <- ec_mapping[, .(
   ec_label = paste(sort(unique(ec)), collapse = ", "),
-  symbol = first(symbol)
+  symbol = symbol[1]
 ), by = gene]
 
 gene_metadata[, display_label := paste0(symbol, " (", ec_label, ")")]
 
-setDT(short.list) 
-purine.meta <- merge(short.list, gene_metadata, by = "gene") 
+setDT(short.list)
+
+purine.meta <- merge(short.list, gene_metadata, by = "gene")
+
+## here we filter out Prat, the retro copy of Prat2 because it mostly is expressed in 
+## preadult stages, our RNAseq data is from adult male flies so it is not so relevant.
+## It is also lowly expressed and not significantly different in any comparison. 
+purine.meta <- purine.meta[symbol != "Prat",]
+
+label_levels <- sort(unique(purine.meta$display_label))
+purine.meta[, x := match(display_label, label_levels)]
+
+purine.ann <- purine.meta[, .(
+  x = x[1],
+  y = max(logFC.hot, logFC.cold, na.rm = TRUE) + 0.035,
+  sig_label = fcase(
+    fdr.temp < 0.001, "***",
+    fdr.temp < 0.01,  "**",
+    fdr.temp < 0.05,  "*",
+    default = "n.s."
+  )
+), by = display_label]
+
+purine.ann[, `:=`(
+  y_tick = y - 0.015,
+  y_text = y + 0.015
+)]
+
+ymax <- max(0.5, purine.ann$y_text, na.rm = TRUE) + 0.03
 
 purine.meta <- melt(
-  purine.meta, 
-  id.vars = c("gene", "display_label"), 
+  purine.meta,
+  id.vars = c("gene", "display_label", "x"),
   measure.vars = c("logFC.hot", "logFC.cold"),
-  variable.name = "condition", 
+  variable.name = "condition",
   value.name = "logFC"
 )
-purine.meta[, condition := ifelse(condition == "logFC.hot", "Hot-evolved", "Cold-evolved")]
 
-png(filename = "../Plot/Purine_gene_expression.png", width = 6, height = 12, units = "in", res = 450)
-ggplot(purine.meta, aes(y = logFC, x = display_label, fill = condition)) +
-  geom_bar(position = position_dodge(preserve = "single"), stat = "identity") +
-  theme_void() +
-  ylim(-0.2, 0.5) +
+purine.meta[, condition := fifelse(condition == "logFC.hot", "Hot-evolved", "Cold-evolved")]
+
+png("../Plot/Purine_gene_expression.png",
+    width = 6, height = 12, units = "in", res = 450)
+
+ggplot(purine.meta, aes(x = x, y = logFC, fill = condition)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_segment(data = purine.ann,
+               aes(x = x - 0.35, xend = x + 0.35, y = y, yend = y),
+               inherit.aes = FALSE) +
+  geom_segment(data = purine.ann,
+               aes(x = x - 0.35, xend = x - 0.35, y = y, yend = y_tick),
+               inherit.aes = FALSE) +
+  geom_segment(data = purine.ann,
+               aes(x = x + 0.35, xend = x + 0.35, y = y, yend = y_tick),
+               inherit.aes = FALSE) +
+  geom_text(data = purine.ann,
+            aes(x = x, y = y_text, label = sig_label),
+            size = 6, inherit.aes = FALSE) +
+  scale_x_continuous(
+    breaks = seq_along(label_levels),
+    labels = label_levels,
+    expand = expansion(add = 0.6)
+  ) +
+  coord_cartesian(ylim = c(-0.2, ymax)) +
   labs(
-    y = "logFC against Ancestral state",
+    y = "logFC against ancestral state",
     x = "Gene (EC Number)",
     fill = "Population"
   ) +
-  scale_fill_manual(values = c("Hot-evolved" = "maroon", "Cold-evolved" = "steelblue")) +
+  scale_fill_manual(values = c(
+    "Hot-evolved" = "maroon",
+    "Cold-evolved" = "steelblue"
+  )) +
+  theme_classic() +
   theme(
-    axis.title.y = element_text(angle = 90, vjust = 0.5, margin = margin(r = 10)),
-    axis.text.x = element_text(size = 20, angle = 45, hjust = 1, vjust = 1),
+    axis.text.x = element_text(size = 18, angle = 45, hjust = 1, vjust = 1),
     axis.text.y = element_text(size = 20),
     axis.title = element_text(size = 20),
-    plot.title = element_text(size = 20, face = "bold"),
+    legend.position = "bottom",
+    text = element_text(size = 20)
+  )
+
+dev.off()
+
+## 9.1 plot out the raw expression value of Prat and Prat2 to found the removal of Prat2----
+
+library(data.table)
+library(ggplot2)
+
+genes <- c(Prat = "FBgn0004901", Prat2 = "FBgn0041194",
+           Pfas = "FBgn0000052", Gart = "FBgn0000053",
+           Paics = "FBgn0020513", Adsl = "FBgn0038467",
+           CG11089 = "FBgn0039241")
+
+dt <- as.data.table(as.table(cpm.mat[genes, ]))
+setnames(dt, c("gene_id", "sample", "expr"))
+dt[, gene := factor(names(genes)[match(gene_id, genes)])]
+dt[, cge := factor(fifelse(grepl("^coldcge", sample), "Cold CGE", "Hot CGE"), levels = c("Cold CGE", "Hot CGE"))]
+dt[, pop := substr(sub(".*_", "", sample), 1, 1)]
+dt[, Evo := factor(fifelse(pop == "A", "Ancestral", fifelse(pop == "C", "Cold-evolved", "Hot-evolved")), levels = c("Ancestral", "Cold-evolved", "Hot-evolved"))]
+
+evo_cols <- c("Ancestral" = "forestgreen", "Cold-evolved" = "steelblue", "Hot-evolved" = "maroon")
+
+pd <- position_dodge(width = 0.55)
+
+p <- ggplot(dt, aes(gene, expr, color = Evo)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.08, dodge.width = 0.55), size = 2.7, alpha = 0.8) +
+  stat_summary(fun = mean, geom = "point", position = pd, size = 4) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = pd, width = 0.18, linewidth = 0.6) +
+  facet_wrap(~ cge, nrow = 1) +
+  scale_color_manual(values = evo_cols) +
+  labs(x = NULL, y = "Expression (Counts per million)") +
+  theme_classic(base_size = 18) +
+  theme(legend.position = "bottom", legend.title = element_blank(), strip.background = element_blank(), strip.text = element_text(face = "bold"))
+
+p
+
+ggsave("../Plot/SuppFig_purine_syn_expression.png", p, width = 12, height = 6, dpi = 600)
+## 10. Purine salvage pathway ----
+
+library(org.Dm.eg.db)
+library(AnnotationDbi)
+
+salvage_genes <- c(
+  "FBgn0035348",
+  "FBgn0000109",
+  "FBgn0037661",
+  "FBgn0036337",
+  "FBgn0034898",
+  "FBgn0052626"
+)
+
+gene_metadata <- as.data.table(
+  AnnotationDbi::select(
+    org.Dm.eg.db,
+    keys = salvage_genes,
+    keytype = "FLYBASE",
+    columns = "SYMBOL"
+  )
+)
+
+setnames(gene_metadata, c("FLYBASE", "SYMBOL"), c("gene", "symbol"))
+gene_metadata <- unique(gene_metadata)
+gene_metadata[, order_id := match(gene, salvage_genes)]
+gene_metadata[, display_label := paste0(symbol, " (", gene, ")")]
+
+setDT(short.list)
+
+purine.salvage <- merge(short.list, gene_metadata, by = "gene")
+
+label_levels <- unique(purine.salvage[order(order_id), display_label])
+purine.salvage[, x := match(display_label, label_levels)]
+
+purine.salvage.ann <- purine.salvage[, .(
+  x = x[1],
+  y = max(0, logFC.hot, logFC.cold, na.rm = TRUE) + 0.035,
+  sig_label = fcase(
+    fdr.temp < 0.001, "***",
+    fdr.temp < 0.01,  "**",
+    fdr.temp < 0.05,  "*",
+    default = "n.s."
+  )
+), by = display_label]
+
+purine.salvage.ann[, `:=`(
+  y_tick = y - 0.015,
+  y_text = y + 0.015
+)]
+
+ymax <- max(0.5, purine.salvage.ann$y_text, na.rm = TRUE) + 0.03
+
+purine.salvage <- melt(
+  purine.salvage,
+  id.vars = c("gene", "display_label", "x"),
+  measure.vars = c("logFC.hot", "logFC.cold"),
+  variable.name = "condition",
+  value.name = "logFC"
+)
+
+purine.salvage[, condition := fifelse(condition == "logFC.hot", "Hot-evolved", "Cold-evolved")]
+
+png("../Plot/Suppl.Purine_salvage_gene_expression.png",
+    width = 6, height = 12, units = "in", res = 450)
+
+ggplot(purine.salvage, aes(x = x, y = logFC, fill = condition)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_segment(data = purine.salvage.ann,
+               aes(x = x - 0.35, xend = x + 0.35, y = y, yend = y),
+               inherit.aes = FALSE) +
+  geom_segment(data = purine.salvage.ann,
+               aes(x = x - 0.35, xend = x - 0.35, y = y, yend = y_tick),
+               inherit.aes = FALSE) +
+  geom_segment(data = purine.salvage.ann,
+               aes(x = x + 0.35, xend = x + 0.35, y = y, yend = y_tick),
+               inherit.aes = FALSE) +
+  geom_text(data = purine.salvage.ann,
+            aes(x = x, y = y_text, label = sig_label),
+            size = 6, inherit.aes = FALSE) +
+  scale_x_continuous(
+    breaks = seq_along(label_levels),
+    labels = label_levels,
+    expand = expansion(add = 0.6)
+  ) +
+  coord_cartesian(ylim = c(-0.2, ymax)) +
+  labs(
+    y = "logFC against ancestral state",
+    x = "Gene",
+    fill = "Population"
+  ) +
+  scale_fill_manual(values = c(
+    "Hot-evolved" = "maroon",
+    "Cold-evolved" = "steelblue"
+  )) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(size = 18, angle = 75, hjust = 1, vjust = 1),
+    axis.text.y = element_text(size = 20),
+    axis.title = element_text(size = 20),
     legend.position = "bottom",
     text = element_text(size = 20)
   )

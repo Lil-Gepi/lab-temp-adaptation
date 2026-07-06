@@ -1,0 +1,3 @@
+test	n_DEG	observed_genes_with_candidate	observed_gene_rate	mean_random_gene_rate	sd_random_gene_rate	fold_enrichment	p_empirical	p_BH
+cold DEGs with >=2 cold candidate SNPs in cis	270	44	0.162962962962963	0.139557777777778	0.0207696651465443	1.16770964368933	0.15008499150085	0.160583941605839
+hot DEGs with >=2 hot candidate SNPs in cis	255	41	0.16078431372549	0.137120392156863	0.0215148468335017	1.17257769757219	0.160583941605839	0.160583941605839
